@@ -142,36 +142,51 @@
     async function startCamera() {
       stopEverything();
       usingCamera = true;
+      if (!navigator.mediaDevices || !isSecureContext) {
+        statusEl.textContent = 'Kamera nicht verfügbar – über HTTPS/localhost starten';
+        return;
+      }
+
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: { ideal: "environment" } }
         });
-        VIDEO.setAttribute('playsinline', '');
-        VIDEO.muted = true;
-        VIDEO.srcObject = mediaStream;
+      } catch (err) {
+        statusEl.textContent = err.name === 'NotAllowedError'
+          ? 'Zugriff auf Kamera verweigert'
+          : 'Kamera-Fehler: ' + err.message;
+        console.error(err);
+        return;
+      }
 
-        VIDEO.onloadedmetadata = async () => {
-          if (VIDEO.videoWidth === 0) {
-            console.warn('Fallback auf Frontkamera');
-            stopStream(mediaStream);
+      VIDEO.setAttribute('playsinline', '');
+      VIDEO.muted = true;
+      VIDEO.srcObject = mediaStream;
+
+      VIDEO.onloadedmetadata = async () => {
+        if (VIDEO.videoWidth === 0) {
+          console.warn('Fallback auf Frontkamera');
+          stopStream(mediaStream);
+          try {
             mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
             VIDEO.srcObject = mediaStream;
-          }
-          try {
-            await VIDEO.play();
-            statusEl.textContent = 'Kamera aktiv';
-            run();
           } catch (err) {
-            statusEl.textContent = 'Autoplay blockiert: ' + err.message;
-            console.warn('Autoplay blockiert', err);
+            statusEl.textContent = 'Kamera-Fehler: ' + err.message;
+            console.error(err);
+            return;
           }
-        };
+        }
+        try {
+          await VIDEO.play();
+          statusEl.textContent = 'Kamera aktiv';
+          run();
+        } catch (err) {
+          statusEl.textContent = 'Autoplay blockiert: ' + err.message;
+          console.warn('Autoplay blockiert', err);
+        }
+      };
 
-      } catch (err) {
-        statusEl.textContent = 'Kamera-Fehler: ' + err.message;
-        console.error(err);
-      }
     }
 
     function toMap(kps) { const m={}; kps.forEach(k=>m[k.name]=k); return m; }
