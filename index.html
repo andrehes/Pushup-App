@@ -80,7 +80,12 @@
   <!-- Safari requires the video element to remain in the layout so that frames
        can be rendered to the canvas. Instead of using display:none, move the
        element off-screen and make it transparent. -->
-  <video id="video" style="opacity:0; position:absolute; left:-9999px; top:-9999px;" playsinline muted></video>
+<video id="video" style="opacity:0; position:absolute; left:-9999px; top:-9999px;" 
+       playsinline 
+       autoplay 
+       allow="camera" 
+       muted></video>
+
 
   <script>
     const CANVAS = document.getElementById('canvas');
@@ -154,12 +159,72 @@
     }
 
     async function startCamera() {
-      stopEverything();
-      usingCamera = true;
-      if (!navigator.mediaDevices || !isSecureContext) {
-        statusEl.textContent = 'Kamera nicht verfügbar – über HTTPS/localhost starten';
-        return;
+  stopEverything();
+  usingCamera = true;
+  
+  if (!navigator.mediaDevices || !isSecureContext) {
+    statusEl.textContent = 'Kamera nicht verfügbar – über HTTPS/localhost starten';
+    return;
+  }
+
+  try {
+    // First try with ideal environment-facing camera
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        facingMode: { ideal: "environment" }
       }
+    });
+
+    VIDEO.setAttribute('playsinline', '');
+    VIDEO.setAttribute('autoplay', '');
+    VIDEO.muted = true;
+    VIDEO.srcObject = mediaStream;
+
+    // Wait for video to be ready
+    await new Promise((resolve) => {
+      VIDEO.onloadedmetadata = () => {
+        resolve();
+      };
+    });
+
+    // Check if we got a valid video stream
+    if (VIDEO.videoWidth === 0) {
+      console.warn('Fallback auf Frontkamera');
+      stopStream(mediaStream);
+      
+      // Try again with user-facing camera
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false
+      });
+      
+      VIDEO.srcObject = mediaStream;
+      await new Promise((resolve) => {
+        VIDEO.onloadedmetadata = () => {
+          resolve();
+        };
+      });
+    }
+
+    try {
+      await VIDEO.play();
+      statusEl.textContent = 'Kamera aktiv';
+      run();
+    } catch (playErr) {
+      statusEl.textContent = 'Video-Start Fehler: ' + playErr.message;
+      console.warn('Video play error:', playErr);
+    }
+
+  } catch (err) {
+    statusEl.textContent = err.name === 'NotAllowedError'
+      ? 'Zugriff auf Kamera verweigert'
+      : 'Kamera-Fehler: ' + err.message;
+    console.error('Camera error:', err);
+  }
+}
 
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({
