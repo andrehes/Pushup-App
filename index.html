@@ -86,7 +86,6 @@
 
     const btnCamera = document.getElementById('btnCamera');
     const btnReset = document.getElementById('btnReset');
-    const btnFeedback = document.getElementById('btnFeedback');
     const fileInput = document.getElementById('fileInput');
 
     const repsEl = document.getElementById('reps');
@@ -145,22 +144,25 @@
           audio: false,
           video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: { ideal: "environment" } }
         });
-        VIDEO.srcObject = mediaStream;
         VIDEO.setAttribute('playsinline', '');
         VIDEO.muted = true;
-        await VIDEO.play().catch(err => console.warn('Autoplay blockiert', err));
-        await new Promise(r => setTimeout(r, 200));
-        if (VIDEO.videoWidth === 0) {
-          console.warn('Fallback auf Frontkamera');
-          stopStream(mediaStream);
-          mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-          VIDEO.srcObject = mediaStream;
-          await VIDEO.play().catch(console.warn);
-        }
-        statusEl.textContent = 'Kamera aktiv';
-        run();
+        VIDEO.srcObject = mediaStream;
+
+        VIDEO.onloadedmetadata = async () => {
+          if (VIDEO.videoWidth === 0) {
+            console.warn('Fallback auf Frontkamera');
+            stopStream(mediaStream);
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+            VIDEO.srcObject = mediaStream;
+          }
+          await VIDEO.play().catch(err => console.warn('Autoplay blockiert', err));
+          statusEl.textContent = 'Kamera aktiv';
+          run();
+        };
+
       } catch (err) {
         statusEl.textContent = 'Kamera-Fehler: ' + err.message;
+        console.error(err);
       }
     }
 
@@ -214,10 +216,6 @@
       running = true;
       const loop = async () => {
         if (!running) return;
-        if (VIDEO.videoWidth && VIDEO.videoHeight) {
-          CANVAS.width = 640;
-          CANVAS.height = 480;
-        }
         drawVideo();
         let poses = [];
         try { poses = await detector.estimatePoses(VIDEO, { maxPoses: 1, flipHorizontal: false }); } catch {}
@@ -281,3 +279,4 @@
   </script>
 </body>
 </html>
+
