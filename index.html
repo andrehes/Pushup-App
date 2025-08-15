@@ -131,7 +131,7 @@
       running = false;
       if (usingCamera) stopStream(mediaStream);
       VIDEO.pause();
-      VIDEO.removeAttribute('srcObject');
+      VIDEO.srcObject = null;
       VIDEO.removeAttribute('src');
       VIDEO.load();
     }
