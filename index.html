@@ -116,8 +116,22 @@
 
     async function ensureDetector() {
       if (detector) return detector;
-      await tf.setBackend('webgl');
-      await tf.ready();
+      const backends = ['webgl', 'wasm', 'cpu'];
+      let ready = false;
+      for (const b of backends) {
+        try {
+          await tf.setBackend(b);
+          await tf.ready();
+          ready = true;
+          break;
+        } catch (err) {
+          console.warn('Backend init failed for', b, err);
+        }
+      }
+      if (!ready) {
+        statusEl.textContent = 'TensorFlow-Backend nicht verfügbar';
+        throw new Error('No TensorFlow backend available');
+      }
       detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
         modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
         enableSmoothing: true
