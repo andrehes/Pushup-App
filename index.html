@@ -155,9 +155,14 @@
             mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
             VIDEO.srcObject = mediaStream;
           }
-          await VIDEO.play().catch(err => console.warn('Autoplay blockiert', err));
-          statusEl.textContent = 'Kamera aktiv';
-          run();
+          try {
+            await VIDEO.play();
+            statusEl.textContent = 'Kamera aktiv';
+            run();
+          } catch (err) {
+            statusEl.textContent = 'Autoplay blockiert: ' + err.message;
+            console.warn('Autoplay blockiert', err);
+          }
         };
 
       } catch (err) {
